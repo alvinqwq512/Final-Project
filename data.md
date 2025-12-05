@@ -100,7 +100,7 @@ parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
     -hour,
     -event_name,
     -location,
-
+    -audience,
     -aud_list,
     -has_children,
     -has_seniors,
@@ -127,7 +127,7 @@ filtered observations to the NYC fully reopened period after COVID (date
 \>= “2021-06-01”) to avoid pandemic-related disruptions. Columns not
 relevant to the analysis were removed, and rows with empty event_type,
 category and attendance values were dropped. After cleaning, we have
-2447 observations and 16 variables. These steps produced a tidy dataset
+2447 observations and 15 variables. These steps produced a tidy dataset
 aligned with our study.
 
 How we cleaned the audience type: We first standardized the audience

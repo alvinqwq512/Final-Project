@@ -83,7 +83,7 @@ parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
     -hour,
     -event_name,
     -location,
-
+    -audience,
     -aud_list,
     -has_children,
     -has_seniors,
