@@ -56,6 +56,17 @@ parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
    time_period = factor(time_period,
                      levels = c("Morning", "Afternoon", "Night", "Midnight")),
     attendance = as.numeric(attendance))|>  
+  mutate(
+    aud_list = str_split(audience, ";|,"),
+    aud_list = map(aud_list, ~ str_trim(.x))) |>
+  mutate(
+    has_children = map_lgl(aud_list, ~ any(.x %in% c("Children", "Kids", "Tot"))),
+    has_seniors  = map_lgl(aud_list, ~ any(.x %in% c("Seniors", "Senior"))),
+    has_genpub   = map_lgl(aud_list, ~ any(.x == "General Public")),
+    
+    kids_friendly   = has_children | has_genpub,
+    senior_friendly = has_seniors  | has_genpub,
+    adults_only     = !kids_friendly) |>
   select(
     -datetime,
     -unit,
@@ -63,7 +74,6 @@ parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
     -date_and_time,
     -classification,
     -source,
-    -audience,
     -hour,
     -event_name,
     -location) |> 
@@ -77,6 +87,17 @@ parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
 ```
 
 We cleaned the dataset to prepare it for analyzing attendance as the primary outcome and key predictors including season, event_type, borough, location_type, and time_period. Date-time information was parsed into date, year, month, and day to support temporal analyses, and time_period was created to evaluate differences across times of day. We filtered observations to the NYC fully reopened period after COVID (date >= "2021-06-01") to avoid pandemic-related disruptions. Columns not relevant to the analysis were removed, and rows with empty event_type, category and attendance values were dropped. After cleaning, we have `r nrow(parkevent)` observations and `r ncol(parkevent)` variables. These steps produced a tidy dataset aligned with our study.
+
+How we cleaned the audience type: We first standardized the audience field by splitting each entry into individual audience categories (e.g., “Children,” “Adults,” “Seniors,” “General Public”). Based on these cleaned components, we created three binary indicators to capture the accessibility of each event to key demographic groups.
+
+An event was classified as kids-friendly if its audience included Children/Tot or was labeled as General Public. Similarly, an event was marked as senior-friendly if Seniors were listed or if the audience was General Public. Finally, we defined adults-only events as those not classified as kids-friendly, meaning no child-oriented groups were present in the audience description.
+
+```{r}
+parkevent %>% count(kids_friendly)
+parkevent %>% count(senior_friendly)
+parkevent %>% count(adults_only)
+```
+
 
 
 

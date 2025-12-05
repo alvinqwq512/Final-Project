@@ -11,8 +11,8 @@ library(tidyverse)
 
     ## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
     ## ✔ dplyr     1.1.4     ✔ readr     2.1.5
-    ## ✔ forcats   1.0.1     ✔ stringr   1.5.2
-    ## ✔ ggplot2   4.0.0     ✔ tibble    3.3.0
+    ## ✔ forcats   1.0.0     ✔ stringr   1.5.1
+    ## ✔ ggplot2   3.5.2     ✔ tibble    3.3.0
     ## ✔ lubridate 1.9.4     ✔ tidyr     1.3.1
     ## ✔ purrr     1.1.0     
     ## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
@@ -73,6 +73,17 @@ parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
    time_period = factor(time_period,
                      levels = c("Morning", "Afternoon", "Night", "Midnight")),
     attendance = as.numeric(attendance))|>  
+  mutate(
+    aud_list = str_split(audience, ";|,"),
+    aud_list = map(aud_list, ~ str_trim(.x))) |>
+  mutate(
+    has_children = map_lgl(aud_list, ~ any(.x %in% c("Children", "Kids", "Tot"))),
+    has_seniors  = map_lgl(aud_list, ~ any(.x %in% c("Seniors", "Senior"))),
+    has_genpub   = map_lgl(aud_list, ~ any(.x == "General Public")),
+    
+    kids_friendly   = has_children | has_genpub,
+    senior_friendly = has_seniors  | has_genpub,
+    adults_only     = !kids_friendly) |>
   select(
     -datetime,
     -unit,
@@ -80,7 +91,6 @@ parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
     -date_and_time,
     -classification,
     -source,
-    -audience,
     -hour,
     -event_name,
     -location) |> 
@@ -107,8 +117,45 @@ filtered observations to the NYC fully reopened period after COVID (date
 \>= “2021-06-01”) to avoid pandemic-related disruptions. Columns not
 relevant to the analysis were removed, and rows with empty event_type,
 category and attendance values were dropped. After cleaning, we have
-2447 observations and 12 variables. These steps produced a tidy dataset
+2447 observations and 20 variables. These steps produced a tidy dataset
 aligned with our study.
+
+How we cleaned the audience type: We first standardized the audience
+field by splitting each entry into individual audience categories (e.g.,
+“Children,” “Adults,” “Seniors,” “General Public”). Based on these
+cleaned components, we created three binary indicators to capture the
+accessibility of each event to key demographic groups.
+
+An event was classified as kids-friendly if its audience included
+Children/Tot or was labeled as General Public. Similarly, an event was
+marked as senior-friendly if Seniors were listed or if the audience was
+General Public. Finally, we defined adults-only events as those not
+classified as kids-friendly, meaning no child-oriented groups were
+present in the audience description.
+
+``` r
+parkevent %>% count(kids_friendly)
+```
+
+    ##   kids_friendly    n
+    ## 1         FALSE  252
+    ## 2          TRUE 2195
+
+``` r
+parkevent %>% count(senior_friendly)
+```
+
+    ##   senior_friendly    n
+    ## 1           FALSE  718
+    ## 2            TRUE 1729
+
+``` r
+parkevent %>% count(adults_only)
+```
+
+    ##   adults_only    n
+    ## 1       FALSE 2195
+    ## 2        TRUE  252
 
 ## Descriptive Analysis
 
@@ -225,7 +272,7 @@ patterns_plot =
 patterns_plot
 ```
 
-![](data_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+![](data_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 Figure displays violin–boxplots of attendance by season, time of day,
 borough, event type, and location type. These plots summarize both the
@@ -291,7 +338,7 @@ Seasonal_plot =
 Seasonal_plot
 ```
 
-![](data_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+![](data_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
 
 The first plot shows how mean attendance varies by time of day across
 seasons. Spring consistently has the highest turnout, especially in the
@@ -332,7 +379,7 @@ plot_calendar =
 plot_calendar
 ```
 
-![](data_files/figure-gfm/unnamed-chunk-6-1.png)<!-- -->
+![](data_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
 This plot shows how park event attendance varies throughout the calendar
 year by combining individual event points with a smoothed monthly trend
