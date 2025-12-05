@@ -8,9 +8,41 @@ output: github_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+## prepare
+
+```{r}
+library(tidyverse)
+library(janitor)
+```
+
 
 ## data clean
 ```{r}
-
+parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
+  janitor::clean_names() |>
+  mutate(
+    datetime = mdy_hms(date_and_time),
+    year  = year(datetime),
+    month = month(datetime, label = TRUE, abbr = TRUE),
+    day = day(datetime),
+    time = format(datetime, "%H:%M:%S"),
+    season = case_when(
+      month %in% c("Mar","Apr","May") ~ "Spring",
+      month %in% c("Jun","Jul","Aug") ~ "Summer",
+      month %in% c("Sep","Oct","Nov") ~ "Fall",
+      month %in% c("Dec","Jan","Feb") ~ "Winter")) |> 
+  select(
+    -unit,
+    -group_name_partner,
+    -date_and_time,
+    -location_type,
+    -event_name,
+    -classification,
+    -source) |> 
+  select(
+    datetime, year, month, day, time, season,
+    everything())
+  
+    
 ```
 
