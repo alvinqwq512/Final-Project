@@ -25,11 +25,11 @@ Using NYC Parks’ Special Events data (one-off fitness, sports, dance, film, an
 Descriptive statistics: Descriptive analyses of NYC Parks special events, focusing on event types, frequency, duration, and geographic distribution across boroughs and seasons. We will summarize how event activity varies by time of year, park location, and event category.   
 
 
-**Spatial and Temporal Analysis**
+**Spatial and Temporal Analysis:**       
 Using interactive mapping tools and time-series visualizations, we will explore spatial clustering and seasonal trends in park events. This analysis will identify whether certain boroughs or neighborhoods host more frequent events and how park activity changes over time.
 
-
-**Equity and Accessibility Assessment**
+ 
+**Equity and Accessibility Assessment:**        
 Using demographic and population data from the U.S. Census and NYC Open Data, we will evaluate the relationship between event locations and neighborhood characteristics (e.g., population density, socioeconomic indicators). This analysis will help assess whether public events are equitably distributed among communities.
 
 

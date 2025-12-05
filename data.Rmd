@@ -1,0 +1,16 @@
+---
+title: "data clean"
+author: "Huiyi Zhu"
+date: "2025-12-05"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## data clean
+```{r}
+
+```
+

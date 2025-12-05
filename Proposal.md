@@ -39,18 +39,18 @@ events, focusing on event types, frequency, duration, and geographic
 distribution across boroughs and seasons. We will summarize how event
 activity varies by time of year, park location, and event category.
 
-**Spatial and Temporal Analysis** Using interactive mapping tools and
-time-series visualizations, we will explore spatial clustering and
-seasonal trends in park events. This analysis will identify whether
-certain boroughs or neighborhoods host more frequent events and how park
-activity changes over time.
+**Spatial and Temporal Analysis:**  
+Using interactive mapping tools and time-series visualizations, we will
+explore spatial clustering and seasonal trends in park events. This
+analysis will identify whether certain boroughs or neighborhoods host
+more frequent events and how park activity changes over time.
 
-**Equity and Accessibility Assessment** Using demographic and population
-data from the U.S. Census and NYC Open Data, we will evaluate the
-relationship between event locations and neighborhood characteristics
-(e.g., population density, socioeconomic indicators). This analysis will
-help assess whether public events are equitably distributed among
-communities.
+**Equity and Accessibility Assessment:**  
+Using demographic and population data from the U.S. Census and NYC Open
+Data, we will evaluate the relationship between event locations and
+neighborhood characteristics (e.g., population density, socioeconomic
+indicators). This analysis will help assess whether public events are
+equitably distributed among communities.
 
 ## The anticipated data sources
 
