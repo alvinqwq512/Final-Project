@@ -15,6 +15,7 @@ library(tidyverse)
 library(janitor)
 library(ggplot2)
 library(patchwork)
+library(RColorBrewer)
 ```
 outcome: attendance 
 variables: season, event type, borough, location type, time of date
@@ -26,6 +27,10 @@ Huiyi Zhu: clean data (date:2022.5-present, morning5-12 afternoon 12-6 night 6-1
 Yiyang Jiao: report+video (9:00PM Sat)
 Xiaoqian Lyu: report
 Yuyue Ma: web(sat) 
+
+```{r}
+raw = read.csv("Parks_Special_Events_20251204.csv")
+```
 
 
 ## Data Cleaning
@@ -56,17 +61,18 @@ parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
    time_period = factor(time_period,
                      levels = c("Morning", "Afternoon", "Night", "Midnight")),
     attendance = as.numeric(attendance))|>  
+  
   mutate(
     aud_list = str_split(audience, ";|,"),
-    aud_list = map(aud_list, ~ str_trim(.x))) |>
-  mutate(
+    aud_list = map(aud_list, ~ str_trim(.x)),
     has_children = map_lgl(aud_list, ~ any(.x %in% c("Children", "Kids", "Tot"))),
     has_seniors  = map_lgl(aud_list, ~ any(.x %in% c("Seniors", "Senior"))),
     has_genpub   = map_lgl(aud_list, ~ any(.x == "General Public")),
     
     kids_friendly   = has_children | has_genpub,
     senior_friendly = has_seniors  | has_genpub,
-    adults_only     = !kids_friendly) |>
+    adults_only     = !kids_friendly & !senior_friendly)|> 
+  
   select(
     -datetime,
     -unit,
@@ -76,10 +82,14 @@ parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
     -source,
     -hour,
     -event_name,
-    -location) |> 
+    -location,
+
+    -aud_list,
+    -has_children,
+    -has_seniors,
+    - has_genpub) |> 
   select(
-    date, year, month, day, time, season,
-    everything()) |> 
+    date, year, month, day, time, season,time_period, everything()) |> 
     filter(date >= as.Date("2021-06-01"),
            event_type != "",
            category != "",
@@ -91,6 +101,8 @@ We cleaned the dataset to prepare it for analyzing attendance as the primary out
 How we cleaned the audience type: We first standardized the audience field by splitting each entry into individual audience categories (e.g., “Children,” “Adults,” “Seniors,” “General Public”). Based on these cleaned components, we created three binary indicators to capture the accessibility of each event to key demographic groups.
 
 An event was classified as kids-friendly if its audience included Children/Tot or was labeled as General Public. Similarly, an event was marked as senior-friendly if Seniors were listed or if the audience was General Public. Finally, we defined adults-only events as those not classified as kids-friendly, meaning no child-oriented groups were present in the audience description.
+
+Dropped the unnecessary variables generated during the process
 
 ```{r}
 parkevent %>% count(kids_friendly)
@@ -154,7 +166,7 @@ plot_type =
     "Community Based Event" = "Community",
     "Local Event" = "Local",
     "Open House" = "Open",
-    "Tournament/Competition" = "Compet")) +
+    "Tournament/Competition" = "Competition")) +
    guides(fill = "none") +
   labs(
     title = "By Event Type",
@@ -197,9 +209,37 @@ plot_location =
    guides(fill = "none") +
   theme_minimal()
 
+parkevent_long <- parkevent |> 
+  pivot_longer(
+    cols = c(kids_friendly, senior_friendly, adults_only),
+    names_to  = "audience_type",
+    values_to = "flag"
+  ) |> 
+  filter(flag) |> 
+  select(-flag) |> 
+  mutate(
+    audience_type = recode(
+      audience_type,
+      kids_friendly   = "Kids",
+      senior_friendly = "Seniors",
+      adults_only     = "Adults"))
+
+plot_audience =
+  ggplot(parkevent_long,
+         aes(x = audience_type, y = attendance, fill = audience_type)) +
+  geom_violin(trim = FALSE, alpha = 0.5) +
+  geom_boxplot(width = 0.15) +
+  coord_cartesian(ylim = c(0, 250)) +
+  labs(
+    title = "By Audience Type",
+    x = "Audience Type",
+    y = "Attendance") +
+  guides(fill = "none") +
+  theme_minimal()
+
 patterns_plot =
   ((plot_season |plot_time| plot_borough) /
-    (plot_type| plot_location))+
+    (plot_audience|plot_type| plot_location))+
   plot_annotation(
     title = "Attendance Patterns Across NYC Parks Events",
     theme = theme())
@@ -207,8 +247,23 @@ patterns_plot
 
 ```
 
-Figure displays violin–boxplots of attendance by season, time of day, borough, event type, and location type. These plots summarize both the distribution (violin shape) and central tendency (box plot) for each category, allowing visual comparison of how attendance varies across park events. We restricted the y-axis to 0–250 attendees because most events fall within this range, while a small number of very large events have much higher attendance. Without this limit, those extreme values compress the main body of the data and make differences between typical events difficult to see.
+Figure displays violin–boxplots of attendance by season, time of day, borough, event type, aduience type and location type. These plots summarize both the distribution (violin shape) and central tendency (box plot) for each category, allowing visual comparison of how attendance varies across park events. We restricted the y-axis to 0–250 attendees because most events fall within this range, while a small number of very large events have much higher attendance. Without this limit, those extreme values compress the main body of the data and make differences between typical events difficult to see.
 
+
+```{r}
+ggplot(parkevent_long,
+       aes(x = month, fill = audience_type)) +
+  geom_bar(position = "fill") 
+  labs(
+    title = "Audience Composition by Borough",
+    x = "Month",
+    y = "Proportion",
+    fill = "Audience Type"
+  ) +
+  theme_minimal()
+
+```
+This stacked bar chart shows how audience composition varies across months for NYC park events. Kids-friendly events consistently represent the largest share throughout the year, especially from April to October, indicating strong family engagement during warmer months. Senior-friendly events also maintain a substantial and steady presence, peaking in early spring and again in late summer. Adults-only events fluctuate more noticeably, with higher proportions in winter months such as January and December. Overall, the chart highlights seasonal shifts in audience needs: family-oriented programming dominates most of the year, while adult-focused events become relatively more common during colder months.
 
 ```{r}
 plot_time_season =
@@ -258,7 +313,6 @@ The first plot shows how mean attendance varies by time of day across seasons. S
 
 
 ```{r}
-
 plot_calendar =
   ggplot(parkevent, 
          aes(x = month(date, label = TRUE, abbr = TRUE), 
