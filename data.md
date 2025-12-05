@@ -47,6 +47,7 @@ parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
       month %in% c("Jun","Jul","Aug") ~ "Summer",
       month %in% c("Sep","Oct","Nov") ~ "Fall",
       month %in% c("Dec","Jan","Feb") ~ "Winter")) |> 
+  rename(type = event_type) |> 
   select(
     -unit,
     -group_name_partner,
