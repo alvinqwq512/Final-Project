@@ -1,0 +1,16 @@
+---
+title: "Modeling_R_final""
+author: "Huiyi Zhu"
+date: "2025-12-06"
+output: git_document
+---
+
+## Prepare
+```{r}
+library(tidyverse)
+library(janitor)
+library(ggplot2)
+library(patchwork)
+library(RColorBrewer)
+library(broom)
+```
