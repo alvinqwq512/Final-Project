@@ -4,9 +4,9 @@ navbar:
   title: "Home"
   right:
     - text: "Data Source & Prepartion"
-      href: Descriptive_Analysis.html     
-    - text: "Data Analysis"
-      href: Data_Analysis.html
+      href: Data_Preparation.html     
+    - text: "Descriptive Analysis"
+      href: Descriptive_Analysis.html
     - text: "Model"
       href: Model.html     
     - text: "Project Report"

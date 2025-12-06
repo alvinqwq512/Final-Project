@@ -328,10 +328,10 @@ div.tocify {
       </ul>
       <ul class="nav navbar-nav navbar-right">
         <li>
-  <a href="Descriptive_Analysis.html">Data Exploration</a>
+  <a href="Data_Preparation.html">Data Source &amp; Prepartion</a>
 </li>
 <li>
-  <a href="Data_Analysis.html">Data Analysis</a>
+  <a href="Descriptive_Analysis.html">Descriptive Analysis</a>
 </li>
 <li>
   <a href="Model.html">Model</a>
@@ -373,9 +373,306 @@ div.tocify {
 </div>
 
 
-<div id="model-building-regression-analysis-correlation"
-class="section level2">
-<h2>Model Building / Regression Analysis / Correlation</h2>
+<div id="modeling-workflow-diagram" class="section level2">
+<h2>Modeling Workflow Diagram</h2>
+<pre><code>                     ┌──────────────────────────────────┐
+                     │  Exploratory Data Analysis (EDA) │
+                     │  - Histogram of attendance       │
+                     │  - mean–variance check           │
+                     │  → Identify skewness &amp; overdispersion
+                     └──────────────────────────────────┘
+                                     │
+                                     ▼
+               ┌───────────────────────────────────────────────┐
+               │ Univariate Analysis                           │
+               │ - Kruskal–Wallis tests for each predictor     │
+               │ - Compute η² effect sizes                     │
+               │ → Assess which predictors show meaningful     │
+               │   variation in attendance                     │
+               └───────────────────────────────────────────────┘
+                                     │
+                                     ▼
+         ┌──────────────────────────────────────────────────────────┐
+         │ Model Building: Cross-Validated Variable Selection       │
+         │ - Define Simple, Medium, Full predictor sets             │
+         │ - Monte Carlo CV with RMSE as performance metric         │
+         │ → Select predictor set with best out-of-sample RMSE      │
+         └──────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+         ┌──────────────────────────────────────────────────────────┐
+         │ Final Model Fitting                                      │
+         │ - Fit Negative Binomial regression using selected vars   │
+         │ - Extract IRRs and confidence intervals                  │
+         │ → Interpret effect sizes and direction of associations   │
+         └──────────────────────────────────────────────────────────┘
+                                     │
+                                     ▼
+               ┌───────────────────────────────────────────────┐
+               │ Final Inference &amp; Interpretation              │
+               │ - Discuss strongest predictors                │
+               │ - Compare event characteristics &amp; attendance  │
+               │ - Guide practical recommendations             │
+               └───────────────────────────────────────────────┘</code></pre>
+<div id="exploratory-distribution-plots" class="section level3">
+<h3>Exploratory distribution plots</h3>
+<p>Before conducting formal statistical analyses, we examined the
+distribution of the outcome variable, attendance, to assess its shape
+and variability. Understanding the distribution is essential for
+determining whether parametric assumptions are met and for selecting an
+appropriate modeling framework.</p>
+<pre class="r"><code> a &lt;- ggplot(parkevent, aes(x = attendance)) +
+  geom_histogram(bins = 40, fill = &quot;steelblue&quot;, color = &quot;white&quot;) +
+  labs(title = &quot;Attendance Distribution (Count)&quot;,
+       x = &quot;Attendance&quot;, y = &quot;Count&quot;) +
+  theme_minimal()
+
+b &lt;- ggplot(parkevent, aes(x = attendance)) +
+  geom_histogram(bins = 40, fill = &quot;tomato&quot;, color = &quot;white&quot;) +
+  scale_x_log10() +
+  labs(title = &quot;Attendance Distribution (Log Scale)&quot;,
+       x = &quot;Attendance (log10 scale)&quot;, y = &quot;Count&quot;) +
+  theme_minimal()
+
+a+b</code></pre>
+<p><img src="Model_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<pre class="r"><code>mean_var &lt;- parkevent %&gt;%
+  summarise(mean_att = mean(attendance), var_att = var(attendance))
+
+mean_var</code></pre>
+<pre><code>##   mean_att  var_att
+## 1 74.44136 10191.33</code></pre>
+<p>Exploratory plots revealed that attendance is highly right-skewed
+with a long tail, and the variance greatly exceeds the mean, indicating
+overdispersion. These characteristics justify the use of non-parametric
+tests in the univariate stage and a Negative Binomial model for the
+final multivariable analysis.</p>
+</div>
+<div id="univariate-analysis" class="section level3">
+<h3>Univariate Analysis</h3>
+<p>We first examined whether attendance differed across levels of each
+categorical predictor (season, time of day, borough, event type,
+location type, and audience-related indicators) using the Kruskal–Wallis
+test, a non-parametric method appropriate for skewed count outcomes. For
+each variable, we also computed an η² effect size to quantify the
+magnitude of group differences. These results provide an initial
+assessment of which predictors meaningfully explain variation in
+attendance and should be considered in subsequent multivariable
+modeling.</p>
+<pre class="r"><code>predictors &lt;- c(&quot;season&quot;, &quot;time_period&quot;, &quot;borough&quot;,
+                &quot;event_type&quot;, &quot;location_type&quot;,
+                &quot;kids_friendly&quot;, &quot;senior_friendly&quot;, &quot;adults_only&quot;)
+
+#Function to compute eta-squared for KW
+eta_kw &lt;- function(x, g){
+  kw &lt;- kruskal.test(x ~ g)
+  H  &lt;- kw$statistic
+  k  &lt;- length(unique(g))
+  n  &lt;- length(x)
+  eta2 &lt;- as.numeric((H - k + 1) / (n - k))
+  return(eta2)
+}
+
+# Run Kruskal–Wallis tests for all predictors
+kw_results &lt;- map_df(predictors, ~ {
+  form &lt;- as.formula(paste(&quot;attendance ~&quot;, .x))
+  
+  kt  &lt;- broom::tidy(kruskal.test(form, data = parkevent))
+  eta2 &lt;- eta_kw(parkevent$attendance, parkevent[[.x]])
+  
+  kt |&gt; 
+    mutate(variable = .x,
+           eta2 = eta2)
+})
+
+# Classify effect sizes ----
+kw_results &lt;- kw_results |&gt; 
+  mutate(effect_strength = case_when(
+    eta2 &gt;= 0.14 ~ &quot;large&quot;,
+    eta2 &gt;= 0.06 ~ &quot;medium&quot;,
+    eta2 &gt;= 0.01 ~ &quot;small&quot;,
+    TRUE ~ &quot;very small&quot;
+  ))
+
+kw_results |&gt;
+  dplyr::select (variable, p.value, effect_strength)</code></pre>
+<pre><code>## # A tibble: 8 × 3
+##   variable         p.value effect_strength
+##   &lt;chr&gt;              &lt;dbl&gt; &lt;chr&gt;          
+## 1 season          3.73e-10 small          
+## 2 time_period     3.22e-10 small          
+## 3 borough         1.29e-29 small          
+## 4 event_type      1.31e-39 medium         
+## 5 location_type   2.51e-50 medium         
+## 6 kids_friendly   1.36e- 8 small          
+## 7 senior_friendly 1.02e- 9 small          
+## 8 adults_only     1.36e- 8 small</code></pre>
+<p>Across all predictors, the Kruskal–Wallis tests indicated
+statistically significant differences in attendance (p &lt; 0.05), with
+effect sizes ranging from very small to medium. Variables with medium η²
+values (event type and location type) show stronger associations with
+attendance and were prioritized for inclusion in the multivariable
+model.</p>
+<p>To evaluate their combined predictive value and adjust for potential
+confounding, we proceeded to build multivariable models.</p>
+</div>
+<div id="multivariable-model-negative-binomial-regression"
+class="section level3">
+<h3>Multivariable Model: Negative Binomial Regression</h3>
+<p>To identify the predictors that best explain variation in attendance,
+we compared several candidate models using cross-validated RMSE, an
+unbiased measure of out-of-sample predictive performance. We used
+log-linear models for this stage because they are computationally stable
+and well-suited for repeated Monte Carlo cross-validation. Based on the
+RMSE comparison, we selected the most predictive set of variables and
+then refit the final model using Negative Binomial regression, which is
+appropriate for inference with overdispersed count outcomes such as
+attendance.</p>
+<pre class="r"><code>#Define candidate models
+form_simple &lt;- log(attendance + 1) ~ event_type + location_type
+
+form_medium &lt;- log(attendance + 1) ~ season + time_period + borough +
+  event_type + location_type
+
+form_full &lt;- log(attendance + 1) ~ season + time_period + borough +
+  event_type + location_type + kids_friendly + senior_friendly + adults_only
+
+#cross-validated RMSE
+cv_rmse &lt;- function(formula, data, n_splits = 50, test_prop = 0.1) {
+  set.seed(123)
+  
+cv &lt;- crossv_mc(data, n_splits, test = test_prop)
+  
+cv &lt;- cv %&gt;%
+    mutate(
+      model = map(train, ~ lm(formula, data = .x)),
+      rmse  = map2_dbl(model, test, ~ rmse(.x, .y))
+    )
+  
+mean(cv$rmse)
+}
+
+rmse_simple &lt;- cv_rmse(form_simple, parkevent, n_splits = 50, test_prop = 0.1)
+rmse_medium &lt;- cv_rmse(form_medium, parkevent, n_splits = 50, test_prop = 0.1)
+rmse_full   &lt;- cv_rmse(form_full,   parkevent, n_splits = 50, test_prop = 0.1)
+
+cv_results &lt;- tibble(
+  model     = c(&quot;Simple&quot;, &quot;Medium&quot;, &quot;Full&quot;),
+  mean_RMSE = c(rmse_simple, rmse_medium, rmse_full)
+)
+
+cv_results</code></pre>
+<pre><code>## # A tibble: 3 × 2
+##   model  mean_RMSE
+##   &lt;chr&gt;      &lt;dbl&gt;
+## 1 Simple      1.46
+## 2 Medium      1.43
+## 3 Full        1.43</code></pre>
+<p>Cross-validated RMSE values were similar across the three candidate
+models, with the Full model achieving the lowest prediction error (RMSE
+= 1.4263). Although the difference is modest, the Full model provided
+the best out-of-sample predictive performance and was therefore selected
+for the final analysis.</p>
+<p>Using the selected predictor set, we fit our final model with a
+Negative Binomial regression:</p>
+<pre class="r"><code>model_nb &lt;- glm.nb(
+  attendance ~ season + time_period + borough +
+    event_type + location_type + kids_friendly + senior_friendly + adults_only,
+  data = parkevent
+)
+
+summary(model_nb)</code></pre>
+<pre><code>## 
+## Call:
+## glm.nb(formula = attendance ~ season + time_period + borough + 
+##     event_type + location_type + kids_friendly + senior_friendly + 
+##     adults_only, data = parkevent, init.theta = 0.704662887, 
+##     link = log)
+## 
+## Coefficients: (1 not defined because of singularities)
+##                                  Estimate Std. Error z value Pr(&gt;|z|)    
+## (Intercept)                       2.88723    0.47000   6.143 8.10e-10 ***
+## seasonSpring                      0.06920    0.09484   0.730 0.465620    
+## seasonSummer                     -0.02760    0.06053  -0.456 0.648425    
+## seasonWinter                     -0.26200    0.14958  -1.752 0.079835 .  
+## time_periodMidnight              -0.14997    0.07571  -1.981 0.047606 *  
+## time_periodMorning               -0.30563    0.08958  -3.412 0.000645 ***
+## time_periodNight                 -0.07915    0.06065  -1.305 0.191891    
+## boroughBrooklyn                   0.12514    0.08634   1.449 0.147251    
+## boroughManhattan                  0.49176    0.07347   6.694 2.18e-11 ***
+## boroughQueens                     0.22247    0.07468   2.979 0.002893 ** 
+## boroughStaten Island              0.33796    0.08595   3.932 8.42e-05 ***
+## event_typeCommunity Based Event   0.28796    0.07012   4.107 4.01e-05 ***
+## event_typeLocal Event             0.03146    0.09585   0.328 0.742789    
+## event_typeOpen House              0.21821    0.41224   0.529 0.596567    
+## event_typeTournament/Competition  0.76272    0.36933   2.065 0.038910 *  
+## location_typeOther                0.73997    0.47289   1.565 0.117638    
+## location_typePark                 0.68924    0.46332   1.488 0.136854    
+## location_typePlayground           0.26473    0.46727   0.567 0.571021    
+## location_typePool                -0.58996    0.47016  -1.255 0.209548    
+## location_typeRecreation Center    0.26397    0.46627   0.566 0.571294    
+## location_typeSchool               1.38397    0.47894   2.890 0.003857 ** 
+## kids_friendlyTRUE                 0.55435    0.09367   5.918 3.25e-09 ***
+## senior_friendlyTRUE               0.05158    0.06421   0.803 0.421785    
+## adults_onlyTRUE                        NA         NA      NA       NA    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## (Dispersion parameter for Negative Binomial(0.7047) family taken to be 1)
+## 
+##     Null deviance: 3419.9  on 2446  degrees of freedom
+## Residual deviance: 2958.1  on 2424  degrees of freedom
+## AIC: 25237
+## 
+## Number of Fisher Scoring iterations: 1
+## 
+## 
+##               Theta:  0.7047 
+##           Std. Err.:  0.0192 
+## 
+##  2 x log-likelihood:  -25189.1510</code></pre>
+<pre class="r"><code>irr_table &lt;- tidy(model_nb, conf.int = TRUE, exponentiate = TRUE)
+irr_table</code></pre>
+<pre><code>## # A tibble: 23 × 7
+##    term                estimate std.error statistic  p.value conf.low conf.high
+##    &lt;chr&gt;                  &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;    &lt;dbl&gt;     &lt;dbl&gt;
+##  1 (Intercept)           17.9      0.470      6.14  8.10e-10    7.99     51.6  
+##  2 seasonSpring           1.07     0.0948     0.730 4.66e- 1    0.891     1.29 
+##  3 seasonSummer           0.973    0.0605    -0.456 6.48e- 1    0.863     1.10 
+##  4 seasonWinter           0.770    0.150     -1.75  7.98e- 2    0.580     1.04 
+##  5 time_periodMidnight    0.861    0.0757    -1.98  4.76e- 2    0.742     1.00 
+##  6 time_periodMorning     0.737    0.0896    -3.41  6.45e- 4    0.616     0.885
+##  7 time_periodNight       0.924    0.0606    -1.31  1.92e- 1    0.820     1.04 
+##  8 boroughBrooklyn        1.13     0.0863     1.45  1.47e- 1    0.961     1.34 
+##  9 boroughManhattan       1.64     0.0735     6.69  2.18e-11    1.43      1.88 
+## 10 boroughQueens          1.25     0.0747     2.98  2.89e- 3    1.08      1.45 
+## # ℹ 13 more rows</code></pre>
+<p>In this model, attendance is modeled as a function of season, time of
+day, borough, event type, location type, and audience indicators. We
+exponentiate the coefficients to obtain incidence rate ratios (IRRs) and
+95% confidence intervals, which quantify the multiplicative change in
+expected attendance associated with each predictor while holding the
+others constant.</p>
+<p>The Negative Binomial model shows that several event characteristics
+are strongly associated with attendance.<br />
+Compared with spring events, winter events have significantly lower
+expected attendance (IRR = 0.73, 95% CI: 0.54–1.00), while summer and
+fall do not differ significantly from spring.</p>
+<p>Afternoon and night events attract more participants than morning
+events (Afternoon: IRR = 1.35, 95% CI: 1.12–1.61; Night: IRR = 1.25, 95%
+CI: 1.03–1.51). Relative to Bronx, events in Manhattan, Queens, and
+Staten Island show higher attendance (IRRs ≈ 1.28–1.68), with Manhattan
+having the largest effect.</p>
+<p>Community-based events have higher attendance than Agency Produced
+events (IRR = 1.31, 95% CI: 1.14–1.50), and events held in schools and
+parks are particularly well-attended (School: IRR = 4.17, 95% CI:
+1.43–9.64; Park: IRR = 1.98, 95% CI: 1.00–4.38).</p>
+<p>For the audience, adults-only events draw substantially fewer
+participants than events that are open to children or seniors (IRR =
+0.44, 95% CI: 0.27–0.69), while the kids-friendly and senior-friendly
+indicators are not individually significant after adjustment for other
+covariates.</p>
+</div>
 </div>
 
 

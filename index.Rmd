@@ -13,9 +13,16 @@ output:
         allowfullscreen></iframe>
 
 ## Motivation
-
+New York sells itself on vibrant public life—but a city’s real magnetism shows up in how well it shares its spaces and resources. Recreation and cultural events can boost health, knit communities together, and energize neighborhoods. Yet across NYC, population density, demographics, and access to parks vary dramatically. Are we programming public events where people actually are—and where they’re most needed?
+Using NYC Parks’ Special Events data (one-off fitness, sports, dance, film, and concert events), we will map and model how event types distribute across the city’s geography and population patterns. Our goal is to surface clustering, gaps, and inequities, identifying neighborhoods saturated with options versus areas underserved. The findings can inform more equitable programming, guiding agencies and partners to place the right events in the right places, and ultimately make NYC’s public realm more inclusive, healthy, and alive.    
 
 ## Team Member
-Here is a picture of our team-building event.
+- Xiaoqian(**S**elina) Lyu -- MPH EPIDEMIOLOGY
+- **M**iranda Chen -- MPH EPIDEMIOLOGY
+- Yiyang(**A**lvin) Jiao -- MS BIOSTATS
+- Huiyi(**C**issie) Zhu -- MS EPIDEMIOLOGY
+- Yuyue(**K**arol) Ma -- MS EPIDEMIOLOGY
+
+Here is a picture of our **SMACK** team event.
 
 ![](images/IMG_5104.JPG){width=40%}

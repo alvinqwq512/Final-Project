@@ -1,5 +1,5 @@
 ---
-title: "Data Source & Preparation"
+title: "Descriptive Analysis"
 output: 
   html_document:
     toc: true
@@ -7,8 +7,8 @@ output:
     code_folding: hide
 ---
 
-## Prepare
-```{r message = FALSE, warning = FALSE}
+
+```{r message = FALSE, warning = FALSE, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(knitr)
@@ -19,7 +19,7 @@ parkevent = read.csv("parkevent_clean.csv")
 
 ## Descriptive Analysis
 
-# Table 1: Attendance summary by different variables
+### Table 1: Attendance summary by different variables
 ```{r message = FALSE, warning = FALSE}
 parkevent |>
   summarize(
@@ -30,10 +30,10 @@ parkevent |>
     Max= max(attendance)) |>
   knitr::kable(caption = "Total Attendance Summary", digits = 2)
 ```
+    
+Table 1 summarizes the distribution of attendance across all post-COVID events, including the mean, median, variability, and range of turnout. These descriptive statistics provide an essential baseline for understanding overall engagement levels and for comparing attendance across seasons, event types, boroughs, and time-of-day categories in subsequent analyses.    
 
-Table 1 summarizes the distribution of attendance across all post-COVID events, including the mean, median, variability, and range of turnout. These descriptive statistics provide an essential baseline for understanding overall engagement levels and for comparing attendance across seasons, event types, boroughs, and time-of-day categories in subsequent analyses.  
-
-# Table 2: Attendance summary by different variables
+### Table 2: Attendance summary by different variables
 ```{r message = FALSE, warning = FALSE}
 table_vars <- c("season", "time_period", "borough", "event_type","location_type")
 
@@ -69,9 +69,9 @@ knitr::kable(
 
 ```
 
-Table 2 shows attendance varied substantially across time, seasons, and event characteristics. Monthly patterns showed higher activity in late spring and summer, with April, June, and July hosting the largest number of events, while winter months had fewer but sometimes higher-variance attendance. Seasonal attendance was highest in Spring and Summer, reflecting NYC’s outdoor activity trends. Afternoon events had the largest counts, followed by Night, whereas Morning and Midnight events drew smaller groups. Attendance also differed across boroughs and event types, with parks and community events supporting the greatest participation. These subgroup summaries provide essential baseline context for downstream modeling.  
-
-# Figure 1: Attendance Patterns Across NYC Parks Events
+Table 2 shows attendance varied substantially across time, seasons, and event characteristics. Monthly patterns showed higher activity in late spring and summer, with April, June, and July hosting the largest number of events, while winter months had fewer but sometimes higher-variance attendance. Seasonal attendance was highest in Spring and Summer, reflecting NYC’s outdoor activity trends. Afternoon events had the largest counts, followed by Night, whereas Morning and Midnight events drew smaller groups. Attendance also differed across boroughs and event types, with parks and community events supporting the greatest participation. These subgroup summaries provide essential baseline context for downstream modeling.      
+   
+### Figure 1: Attendance Patterns Across NYC Parks Events
 ```{r message = FALSE, warning = FALSE}
 plot_season =
   ggplot(parkevent, aes(x = season, y = attendance, fill=season)) +
@@ -191,9 +191,9 @@ patterns_plot =
 patterns_plot
 
 ```
-Figure1 displays violin–boxplots of attendance by season, time of day, borough, event type, aduience type and location type. These plots summarize both the distribution (violin shape) and central tendency (box plot) for each category, allowing visual comparison of how attendance varies across park events. We restricted the y-axis to 0–250 attendees because most events fall within this range, while a small number of very large events have much higher attendance. Without this limit, those extreme values compress the main body of the data and make differences between typical events difficult to see.  
+Figure1 displays violin–boxplots of attendance by season, time of day, borough, event type, aduience type and location type. These plots summarize both the distribution (violin shape) and central tendency (box plot) for each category, allowing visual comparison of how attendance varies across park events. We restricted the y-axis to 0–250 attendees because most events fall within this range, while a small number of very large events have much higher attendance. Without this limit, those extreme values compress the main body of the data and make differences between typical events difficult to see.    
 
-## Figure 2: Audience Composition by Borough
+### Figure 2: Audience Composition by Borough
 ```{r message = FALSE, warning = FALSE}
 ggplot(parkevent_long,
        aes(x = month, fill = audience_type)) +
@@ -206,10 +206,10 @@ ggplot(parkevent_long,
   ) +
   theme_minimal()
 ```
+    
+Figure 2 shows how audience composition varies across months for NYC park events. Kids-friendly events consistently represent the largest share throughout the year, especially from April to October, indicating strong family engagement during warmer months. Senior-friendly events also maintain a substantial and steady presence, peaking in early spring and again in late summer. Adults-only events fluctuate more noticeably, with higher proportions in winter months such as January and December. Overall, the chart highlights seasonal shifts in audience needs: family-oriented programming dominates most of the year, while adult-focused events become relatively more common during colder months.    
 
-Figure 2 shows how audience composition varies across months for NYC park events. Kids-friendly events consistently represent the largest share throughout the year, especially from April to October, indicating strong family engagement during warmer months. Senior-friendly events also maintain a substantial and steady presence, peaking in early spring and again in late summer. Adults-only events fluctuate more noticeably, with higher proportions in winter months such as January and December. Overall, the chart highlights seasonal shifts in audience needs: family-oriented programming dominates most of the year, while adult-focused events become relatively more common during colder months.  
-
-## Figure 3: Intercation Figures
+### Figure 3: Intercation Figures
 ```{r message = FALSE, warning = FALSE}
 plot_time_season =
   parkevent |>
@@ -253,10 +253,11 @@ Seasonal_plot =
 
 Seasonal_plot
 ```
+    
 Figure 3A shows how mean attendance varies by time of day across seasons. Spring consistently has the highest turnout, especially in the afternoon, while Winter shows the sharpest decline at midnight. Fall attendance remains relatively stable across all times, whereas Summer gradually increases into the evening.            
-Figure 3B compares mean attendance by seasons across borough. Staten Island and Queens show the highest seasonal peaks, particularly in Spring. Brooklyn and Manhattan maintain moderate attendance across seasons, while the Bronx shows the lowest and least variable averages. Together, these trends highlight clear seasonal and geographic differences in NYC park event engagement.  
+Figure 3B compares mean attendance by seasons across borough. Staten Island and Queens show the highest seasonal peaks, particularly in Spring. Brooklyn and Manhattan maintain moderate attendance across seasons, while the Bronx shows the lowest and least variable averages. Together, these trends highlight clear seasonal and geographic differences in NYC park event engagement.    
 
-## Figure 4: Attendance Over the Calendar Year
+### Figure 4: Attendance Over the Calendar Year
 ```{r message = FALSE, warning = FALSE}
 plot_calendar =
   ggplot(parkevent, 
@@ -275,4 +276,5 @@ plot_calendar =
   theme_minimal()
 plot_calendar
 ```
+    
 Figure 4 shows how park event attendance varies throughout the calendar year by combining individual event points with a smoothed monthly trend line. Grey points display the full distribution of attendance for all events, allowing visualization of variability within each month. Monthly averages are overlaid as a blue line to highlight broader seasonal patterns that daily fluctuations may obscure. The results show a dip in February, rising attendance during spring, a slight decline in midsummer, and another increase in October and December. Using monthly means helps reveal consistent seasonal trends while still preserving the underlying data distribution for context and interpretation.

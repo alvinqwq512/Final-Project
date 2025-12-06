@@ -1,0 +1,103 @@
+---
+title: "Data Source & Preparation"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+---
+
+## Data Source
+    
+Dataset will be the [*Parks Special Events*](https://data.cityofnewyork.us/Recreation/Parks-Special-Events/6v4b-5gp4/about_data) from *NYC Open Data*. This data set includes detailed information on public events held in New York City parks.      
+Relevant indices include:    
+- Group Name/Partner      
+- Borough       
+- Location        
+- Event Name & Type       
+- Attendance        
+- Category      
+
+```{r message = FALSE, warning = FALSE, include=FALSE}
+library(tidyverse)
+library(janitor)
+library(readr)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Cleaning
+```{r message = FALSE, warning = FALSE}
+raw = read.csv("Parks_Special_Events_20251204.csv")
+
+parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
+  janitor::clean_names() |>
+  mutate(
+    datetime = mdy_hms(date_and_time),
+    date     = as_date(datetime), 
+    year  = year(datetime),
+    month = month(datetime, label = TRUE, abbr = TRUE),
+    day = day(datetime),
+    time = format(datetime, "%H:%M:%S"),
+    season = case_when(
+      month %in% c("Mar","Apr","May") ~ "Spring",
+      month %in% c("Jun","Jul","Aug") ~ "Summer",
+      month %in% c("Sep","Oct","Nov") ~ "Fall",
+      month %in% c("Dec","Jan","Feb") ~ "Winter"), 
+      season = factor(season,
+        levels = c("Spring", "Summer", "Fall", "Winter")),
+    hour = as.numeric(format(datetime, "%H")),
+    time_period = case_when(
+      hour < 5 ~ "Midnight",
+      hour >= 5  & hour < 12 ~ "Morning",
+      hour >= 12 & hour < 18 ~ "Afternoon",
+      hour >= 18 & hour < 23 ~ "Night",
+      hour >= 23   ~ "Midnight"),
+   time_period = factor(time_period,
+                     levels = c("Morning", "Afternoon", "Night", "Midnight")),
+    attendance = as.numeric(attendance))|>  
+  
+  mutate(
+    aud_list = str_split(audience, ";|,"),
+    aud_list = map(aud_list, ~ str_trim(.x)),
+    has_children = map_lgl(aud_list, ~ any(.x %in% c("Children", "Kids", "Tot"))),
+    has_seniors  = map_lgl(aud_list, ~ any(.x %in% c("Seniors", "Senior"))),
+    has_genpub   = map_lgl(aud_list, ~ any(.x == "General Public")),
+    
+    kids_friendly   = has_children | has_genpub,
+    senior_friendly = has_seniors  | has_genpub,
+    adults_only     = !kids_friendly)|> 
+  
+  select(
+    -datetime,
+    -unit,
+    -group_name_partner,
+    -date_and_time,
+    -classification,
+    -source,
+    -hour,
+    -event_name,
+    -location,
+    -audience,
+    -aud_list,
+    -has_children,
+    -has_seniors,
+    - has_genpub) |> 
+  select(
+    date, year, month, day, time, season,time_period, everything()) |> 
+    filter(date >= as.Date("2021-06-01"),
+           event_type != "",
+           category != "",
+           attendance != "")
+
+write_csv(parkevent, "parkevent_clean.csv")
+```
+
+We cleaned the dataset to prepare it for analysis of attendance patterns across NYC park events.      
+
+Date–time strings were parsed into structured components (date, year, month, day, time) to enable temporal analyses, and new variables were created to capture meaningful event characteristics, including season (Spring, Summer, Fall, Winter) and time_period (Morning, Afternoon, Night, Midnight). We restricted the dataset to events occurring on or after June 1, 2021, the point at which NYC fully reopened following COVID-related restrictions. This cutoff was chosen to avoid distortions caused by pandemic-era closures, capacity limits, and abnormal attendance behavior.      
+
+To improve interpretability of audience demographics, we split raw audience text into components and constructed three indicators: kids_friendly, senior_friendly, and adults_only which can reflecting whether events targeted or included specific groups.      
+
+We removed variables that were administrative, redundant, or not analytically meaningful (e.g., raw datetime strings, internal IDs, partner names, audience parsing intermediates). Rows with missing or empty values for key variables such as event_type, category, or attendance were dropped to ensure analytic consistency.    
+
+These steps produced a streamlined, well-structured dataset that supports valid comparisons across seasons, times of day, boroughs, event types, and audience groups.

@@ -8,6 +8,17 @@ output:
 ---
 
 
+```{r message = FALSE, warning = FALSE, include=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(patchwork)
+library(broom)
+parkevent = read.csv("parkevent_clean.csv")
+library(MASS)
+library(modelr)
+```
+
+
 ## Modeling Workflow Diagram
 
                          ┌──────────────────────────────────┐
@@ -52,8 +63,8 @@ output:
 
 
 ### Exploratory distribution plots
-Before conducting formal statistical analyses, we examined the distribution of the outcome variable, attendance, to assess its shape and variability. Understanding the distribution is essential for determining whether parametric assumptions are met and for selecting an appropriate modeling framework.
-```{r}
+Before conducting formal statistical analyses, we examined the distribution of the outcome variable, attendance, to assess its shape and variability. Understanding the distribution is essential for determining whether parametric assumptions are met and for selecting an appropriate modeling framework.    
+```{r message = FALSE, warning = FALSE}
  a <- ggplot(parkevent, aes(x = attendance)) +
   geom_histogram(bins = 40, fill = "steelblue", color = "white") +
   labs(title = "Attendance Distribution (Count)",
@@ -70,26 +81,20 @@ b <- ggplot(parkevent, aes(x = attendance)) +
 a+b
 ```
 
-```{r}
+```{r message = FALSE, warning = FALSE}
 mean_var <- parkevent %>%
   summarise(mean_att = mean(attendance), var_att = var(attendance))
 
 mean_var
 
 ```
-Exploratory plots revealed that attendance is highly right-skewed with a long tail, and the variance greatly exceeds the mean, indicating overdispersion. These characteristics justify the use of non-parametric tests in the univariate stage and a Negative Binomial model for the final multivariable analysis.
+Exploratory plots revealed that attendance is highly right-skewed with a long tail, and the variance greatly exceeds the mean, indicating overdispersion. These characteristics justify the use of non-parametric tests in the univariate stage and a Negative Binomial model for the final multivariable analysis.    
 
 
 ### Univariate Analysis
-We first examined whether attendance differed across levels of each categorical predictor (season, time of day, borough, event type, location type, and audience-related indicators) using the Kruskal–Wallis test, a non-parametric method appropriate for skewed count outcomes. For each variable, we also computed an η² effect size to quantify the magnitude of group differences. These results provide an initial assessment of which predictors meaningfully explain variation in attendance and should be considered in subsequent multivariable modeling.
+We first examined whether attendance differed across levels of each categorical predictor (season, time of day, borough, event type, location type, and audience-related indicators) using the Kruskal–Wallis test, a non-parametric method appropriate for skewed count outcomes. For each variable, we also computed an η² effect size to quantify the magnitude of group differences. These results provide an initial assessment of which predictors meaningfully explain variation in attendance and should be considered in subsequent multivariable modeling.    
 
-```{r}
-library(MASS)
-library(modelr)
-```
-
-
-```{r}
+```{r message = FALSE, warning = FALSE}
 predictors <- c("season", "time_period", "borough",
                 "event_type", "location_type",
                 "kids_friendly", "senior_friendly", "adults_only")
@@ -129,14 +134,14 @@ kw_results |>
   dplyr::select (variable, p.value, effect_strength)
 
 ```
-Across all predictors, the Kruskal–Wallis tests indicated statistically significant differences in attendance (p < 0.05), with effect sizes ranging from very small to medium. Variables with medium η² values (event type and location type) show stronger associations with attendance and were prioritized for inclusion in the multivariable model.
+Across all predictors, the Kruskal–Wallis tests indicated statistically significant differences in attendance (p < 0.05), with effect sizes ranging from very small to medium. Variables with medium η² values (event type and location type) show stronger associations with attendance and were prioritized for inclusion in the multivariable model.    
 
-To evaluate their combined predictive value and adjust for potential confounding, we proceeded to build multivariable models.
+To evaluate their combined predictive value and adjust for potential confounding, we proceeded to build multivariable models.    
 
 ### Multivariable Model: Negative Binomial Regression
-To identify the predictors that best explain variation in attendance, we compared several candidate models using cross-validated RMSE, an unbiased measure of out-of-sample predictive performance. We used log-linear models for this stage because they are computationally stable and well-suited for repeated Monte Carlo cross-validation. Based on the RMSE comparison, we selected the most predictive set of variables and then refit the final model using Negative Binomial regression, which is appropriate for inference with overdispersed count outcomes such as attendance.
+To identify the predictors that best explain variation in attendance, we compared several candidate models using cross-validated RMSE, an unbiased measure of out-of-sample predictive performance. We used log-linear models for this stage because they are computationally stable and well-suited for repeated Monte Carlo cross-validation. Based on the RMSE comparison, we selected the most predictive set of variables and then refit the final model using Negative Binomial regression, which is appropriate for inference with overdispersed count outcomes such as attendance.    
 
-```{r}
+```{r message = FALSE, warning = FALSE}
 #Define candidate models
 form_simple <- log(attendance + 1) ~ event_type + location_type
 
@@ -172,11 +177,11 @@ cv_results <- tibble(
 
 cv_results
 ```
-Cross-validated RMSE values were similar across the three candidate models, with the Full model achieving the lowest prediction error (RMSE = 1.4263). Although the difference is modest, the Full model provided the best out-of-sample predictive performance and was therefore selected for the final analysis.
+Cross-validated RMSE values were similar across the three candidate models, with the Full model achieving the lowest prediction error (RMSE = 1.4263). Although the difference is modest, the Full model provided the best out-of-sample predictive performance and was therefore selected for the final analysis.    
 
-Using the selected predictor set, we fit our final model with a Negative Binomial regression:
+Using the selected predictor set, we fit our final model with a Negative Binomial regression:    
 
-```{r}
+```{r message = FALSE, warning = FALSE}
 model_nb <- glm.nb(
   attendance ~ season + time_period + borough +
     event_type + location_type + kids_friendly + senior_friendly + adults_only,
@@ -189,14 +194,13 @@ irr_table <- tidy(model_nb, conf.int = TRUE, exponentiate = TRUE)
 irr_table
 
 ```
-In this model, attendance is modeled as a function of season, time of day, borough, event type, location type, and audience indicators. We exponentiate the coefficients to obtain incidence rate ratios (IRRs) and 95% confidence intervals, which quantify the multiplicative change in expected attendance associated with each predictor while holding the others constant.
+In this model, attendance is modeled as a function of season, time of day, borough, event type, location type, and audience indicators. We exponentiate the coefficients to obtain incidence rate ratios (IRRs) and 95% confidence intervals, which quantify the multiplicative change in expected attendance associated with each predictor while holding the others constant.    
 
-The Negative Binomial model shows that several event characteristics are strongly associated with attendance. 
-Compared with spring events, winter events have significantly lower expected attendance (IRR = 0.73, 95% CI: 0.54–1.00), while summer and fall do not differ significantly from spring. 
+The Negative Binomial model shows that several event characteristics are strongly associated with attendance.     
+Compared with spring events, winter events have significantly lower expected attendance (IRR = 0.73, 95% CI: 0.54–1.00), while summer and fall do not differ significantly from spring.     
 
-Afternoon and night events attract more participants than morning events (Afternoon: IRR = 1.35, 95% CI: 1.12–1.61; Night: IRR = 1.25, 95% CI: 1.03–1.51). Relative to Bronx, events in Manhattan, Queens, and Staten Island show higher attendance (IRRs ≈ 1.28–1.68), with Manhattan having the largest effect. 
+Afternoon and night events attract more participants than morning events (Afternoon: IRR = 1.35, 95% CI: 1.12–1.61; Night: IRR = 1.25, 95% CI: 1.03–1.51). Relative to Bronx, events in Manhattan, Queens, and Staten Island show higher attendance (IRRs ≈ 1.28–1.68), with Manhattan having the largest effect.     
 
-Community-based events have higher attendance than Agency Produced events (IRR = 1.31, 95% CI: 1.14–1.50), and events held in schools and parks are particularly well-attended (School: IRR = 4.17, 95% CI: 1.43–9.64; Park: IRR = 1.98, 95% CI: 1.00–4.38). 
+Community-based events have higher attendance than Agency Produced events (IRR = 1.31, 95% CI: 1.14–1.50), and events held in schools and parks are particularly well-attended (School: IRR = 4.17, 95% CI: 1.43–9.64; Park: IRR = 1.98, 95% CI: 1.00–4.38).     
 
-For the audience, adults-only events draw substantially fewer participants than events that are open to children or seniors (IRR = 0.44, 95% CI: 0.27–0.69), while the kids-friendly and senior-friendly indicators are not individually significant after adjustment for other covariates.
-
+For the audience, adults-only events draw substantially fewer participants than events that are open to children or seniors (IRR = 0.44, 95% CI: 0.27–0.69), while the kids-friendly and senior-friendly indicators are not individually significant after adjustment for other covariates.    

@@ -11,7 +11,7 @@
 
 
 
-<title>Project Report</title>
+<title>Data Source &amp; Preparation</title>
 
 <script src="site_libs/header-attrs-2.29/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
@@ -368,12 +368,115 @@ div.tocify {
 
 
 
-<h1 class="title toc-ignore">Project Report</h1>
+<h1 class="title toc-ignore">Data Source &amp; Preparation</h1>
 
 </div>
 
 
+<div id="data-source" class="section level2">
+<h2>Data Source</h2>
+<p>Dataset will be the <a
+href="https://data.cityofnewyork.us/Recreation/Parks-Special-Events/6v4b-5gp4/about_data"><em>Parks
+Special Events</em></a> from <em>NYC Open Data</em>. This data set
+includes detailed information on public events held in New York City
+parks.<br />
+Relevant indices include:<br />
+- Group Name/Partner<br />
+- Borough<br />
+- Location<br />
+- Event Name &amp; Type<br />
+- Attendance<br />
+- Category</p>
+</div>
+<div id="data-cleaning" class="section level2">
+<h2>Data Cleaning</h2>
+<pre class="r"><code>raw = read.csv(&quot;Parks_Special_Events_20251204.csv&quot;)
 
+parkevent = read.csv(&quot;Parks_Special_Events_20251204.csv&quot;) |&gt;
+  janitor::clean_names() |&gt;
+  mutate(
+    datetime = mdy_hms(date_and_time),
+    date     = as_date(datetime), 
+    year  = year(datetime),
+    month = month(datetime, label = TRUE, abbr = TRUE),
+    day = day(datetime),
+    time = format(datetime, &quot;%H:%M:%S&quot;),
+    season = case_when(
+      month %in% c(&quot;Mar&quot;,&quot;Apr&quot;,&quot;May&quot;) ~ &quot;Spring&quot;,
+      month %in% c(&quot;Jun&quot;,&quot;Jul&quot;,&quot;Aug&quot;) ~ &quot;Summer&quot;,
+      month %in% c(&quot;Sep&quot;,&quot;Oct&quot;,&quot;Nov&quot;) ~ &quot;Fall&quot;,
+      month %in% c(&quot;Dec&quot;,&quot;Jan&quot;,&quot;Feb&quot;) ~ &quot;Winter&quot;), 
+      season = factor(season,
+        levels = c(&quot;Spring&quot;, &quot;Summer&quot;, &quot;Fall&quot;, &quot;Winter&quot;)),
+    hour = as.numeric(format(datetime, &quot;%H&quot;)),
+    time_period = case_when(
+      hour &lt; 5 ~ &quot;Midnight&quot;,
+      hour &gt;= 5  &amp; hour &lt; 12 ~ &quot;Morning&quot;,
+      hour &gt;= 12 &amp; hour &lt; 18 ~ &quot;Afternoon&quot;,
+      hour &gt;= 18 &amp; hour &lt; 23 ~ &quot;Night&quot;,
+      hour &gt;= 23   ~ &quot;Midnight&quot;),
+   time_period = factor(time_period,
+                     levels = c(&quot;Morning&quot;, &quot;Afternoon&quot;, &quot;Night&quot;, &quot;Midnight&quot;)),
+    attendance = as.numeric(attendance))|&gt;  
+  
+  mutate(
+    aud_list = str_split(audience, &quot;;|,&quot;),
+    aud_list = map(aud_list, ~ str_trim(.x)),
+    has_children = map_lgl(aud_list, ~ any(.x %in% c(&quot;Children&quot;, &quot;Kids&quot;, &quot;Tot&quot;))),
+    has_seniors  = map_lgl(aud_list, ~ any(.x %in% c(&quot;Seniors&quot;, &quot;Senior&quot;))),
+    has_genpub   = map_lgl(aud_list, ~ any(.x == &quot;General Public&quot;)),
+    
+    kids_friendly   = has_children | has_genpub,
+    senior_friendly = has_seniors  | has_genpub,
+    adults_only     = !kids_friendly)|&gt; 
+  
+  select(
+    -datetime,
+    -unit,
+    -group_name_partner,
+    -date_and_time,
+    -classification,
+    -source,
+    -hour,
+    -event_name,
+    -location,
+    -audience,
+    -aud_list,
+    -has_children,
+    -has_seniors,
+    - has_genpub) |&gt; 
+  select(
+    date, year, month, day, time, season,time_period, everything()) |&gt; 
+    filter(date &gt;= as.Date(&quot;2021-06-01&quot;),
+           event_type != &quot;&quot;,
+           category != &quot;&quot;,
+           attendance != &quot;&quot;)
+
+write_csv(parkevent, &quot;parkevent_clean.csv&quot;)</code></pre>
+<p>We cleaned the dataset to prepare it for analysis of attendance
+patterns across NYC park events.</p>
+<p>Date–time strings were parsed into structured components (date, year,
+month, day, time) to enable temporal analyses, and new variables were
+created to capture meaningful event characteristics, including season
+(Spring, Summer, Fall, Winter) and time_period (Morning, Afternoon,
+Night, Midnight). We restricted the dataset to events occurring on or
+after June 1, 2021, the point at which NYC fully reopened following
+COVID-related restrictions. This cutoff was chosen to avoid distortions
+caused by pandemic-era closures, capacity limits, and abnormal
+attendance behavior.</p>
+<p>To improve interpretability of audience demographics, we split raw
+audience text into components and constructed three indicators:
+kids_friendly, senior_friendly, and adults_only which can reflecting
+whether events targeted or included specific groups.</p>
+<p>We removed variables that were administrative, redundant, or not
+analytically meaningful (e.g., raw datetime strings, internal IDs,
+partner names, audience parsing intermediates). Rows with missing or
+empty values for key variables such as event_type, category, or
+attendance were dropped to ensure analytic consistency.</p>
+<p>These steps produced a streamlined, well-structured dataset that
+supports valid comparisons across seasons, times of day, boroughs, event
+types, and audience groups.</p>
+</div>
 
 
 

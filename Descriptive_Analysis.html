@@ -11,7 +11,7 @@
 
 
 
-<title>Data Exploration</title>
+<title>Descriptive Analysis</title>
 
 <script src="site_libs/header-attrs-2.29/header-attrs.js"></script>
 <script src="site_libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
@@ -328,10 +328,10 @@ div.tocify {
       </ul>
       <ul class="nav navbar-nav navbar-right">
         <li>
-  <a href="Descriptive_Analysis.html">Data Exploration</a>
+  <a href="Data_Preparation.html">Data Source &amp; Prepartion</a>
 </li>
 <li>
-  <a href="Data_Analysis.html">Data Analysis</a>
+  <a href="Descriptive_Analysis.html">Descriptive Analysis</a>
 </li>
 <li>
   <a href="Model.html">Model</a>
@@ -368,152 +368,33 @@ div.tocify {
 
 
 
-<h1 class="title toc-ignore">Data Exploration</h1>
+<h1 class="title toc-ignore">Descriptive Analysis</h1>
 
 </div>
 
 
-<p>Huiyi Zhu</p>
-<p>Outcome: attendance<br />
-Variables: season, event type, borough, location type, time of date</p>
-<div id="data-source" class="section level2">
-<h2>Data Source</h2>
-<p>Dataset will be the <a
-href="https://data.cityofnewyork.us/Recreation/Parks-Special-Events/6v4b-5gp4/about_data"><em>Parks
-Special Events</em></a> from <em>NYC Open Data</em>. This data set
-includes detailed information on public events held in New York City
-parks.</p>
-<p>Relevant indices include:<br />
-- Group Name/Partner<br />
-- Borough<br />
-- Location<br />
-- Event Name &amp; Type<br />
-- Attendance<br />
-- Category</p>
-<pre class="r"><code>raw = read.csv(&quot;Parks_Special_Events_20251204.csv&quot;)</code></pre>
-</div>
-<div id="data-cleaning" class="section level2">
-<h2>Data Cleaning</h2>
-<pre class="r"><code>parkevent = read.csv(&quot;Parks_Special_Events_20251204.csv&quot;) |&gt;
-  janitor::clean_names() |&gt;
-  mutate(
-    datetime = mdy_hms(date_and_time),
-    date     = as_date(datetime), 
-    year  = year(datetime),
-    month = month(datetime, label = TRUE, abbr = TRUE),
-    day = day(datetime),
-    time = format(datetime, &quot;%H:%M:%S&quot;),
-    season = case_when(
-      month %in% c(&quot;Mar&quot;,&quot;Apr&quot;,&quot;May&quot;) ~ &quot;Spring&quot;,
-      month %in% c(&quot;Jun&quot;,&quot;Jul&quot;,&quot;Aug&quot;) ~ &quot;Summer&quot;,
-      month %in% c(&quot;Sep&quot;,&quot;Oct&quot;,&quot;Nov&quot;) ~ &quot;Fall&quot;,
-      month %in% c(&quot;Dec&quot;,&quot;Jan&quot;,&quot;Feb&quot;) ~ &quot;Winter&quot;), 
-      season = factor(season,
-        levels = c(&quot;Spring&quot;, &quot;Summer&quot;, &quot;Fall&quot;, &quot;Winter&quot;)),
-    hour = as.numeric(format(datetime, &quot;%H&quot;)),
-    time_period = case_when(
-      hour &lt; 5 ~ &quot;Midnight&quot;,
-      hour &gt;= 5  &amp; hour &lt; 12 ~ &quot;Morning&quot;,
-      hour &gt;= 12 &amp; hour &lt; 18 ~ &quot;Afternoon&quot;,
-      hour &gt;= 18 &amp; hour &lt; 23 ~ &quot;Night&quot;,
-      hour &gt;= 23   ~ &quot;Midnight&quot;),
-   time_period = factor(time_period,
-                     levels = c(&quot;Morning&quot;, &quot;Afternoon&quot;, &quot;Night&quot;, &quot;Midnight&quot;)),
-    attendance = as.numeric(attendance))|&gt;  
-  
-  mutate(
-    aud_list = str_split(audience, &quot;;|,&quot;),
-    aud_list = map(aud_list, ~ str_trim(.x)),
-    has_children = map_lgl(aud_list, ~ any(.x %in% c(&quot;Children&quot;, &quot;Kids&quot;, &quot;Tot&quot;))),
-    has_seniors  = map_lgl(aud_list, ~ any(.x %in% c(&quot;Seniors&quot;, &quot;Senior&quot;))),
-    has_genpub   = map_lgl(aud_list, ~ any(.x == &quot;General Public&quot;)),
-    
-    kids_friendly   = has_children | has_genpub,
-    senior_friendly = has_seniors  | has_genpub,
-    adults_only     = !kids_friendly &amp; !senior_friendly)|&gt; 
-  
-  select(
-    -datetime,
-    -unit,
-    -group_name_partner,
-    -date_and_time,
-    -classification,
-    -source,
-    -hour,
-    -event_name,
-    -location,
-    -audience,
-    -aud_list,
-    -has_children,
-    -has_seniors,
-    - has_genpub) |&gt; 
-  select(
-    date, year, month, day, time, season,time_period, everything()) |&gt; 
-    filter(date &gt;= as.Date(&quot;2021-06-01&quot;),
-           event_type != &quot;&quot;,
-           category != &quot;&quot;,
-           attendance != &quot;&quot;)</code></pre>
-<p>We cleaned the dataset to prepare it for analyzing attendance as the
-primary outcome and key predictors including season, event_type,
-borough, location_type, and time_period. Date-time information was
-parsed into date, year, month, and day to support temporal analyses, and
-time_period was created to evaluate differences across times of day. We
-filtered observations to the NYC fully reopened period after COVID (date
-&gt;= “2021-06-01”) to avoid pandemic-related disruptions. Columns not
-relevant to the analysis were removed, and rows with empty event_type,
-category and attendance values were dropped. After cleaning, we have
-2447 observations and 15 variables. These steps produced a tidy dataset
-aligned with our study.</p>
-<p>How we cleaned the audience type: We first standardized the audience
-field by splitting each entry into individual audience categories (e.g.,
-“Children,” “Adults,” “Seniors,” “General Public”). Based on these
-cleaned components, we created three binary indicators to capture the
-accessibility of each event to key demographic groups.</p>
-<p>An event was classified as kids-friendly if its audience included
-Children/Tot or was labeled as General Public. Similarly, an event was
-marked as senior-friendly if Seniors were listed or if the audience was
-General Public. Finally, we defined adults-only events as those not
-classified as kids-friendly, meaning no child-oriented groups were
-present in the audience description.</p>
-<p>Dropped the unnecessary variables generated during the process.</p>
-<pre class="r"><code>parkevent %&gt;% count(kids_friendly)</code></pre>
-<pre><code>##   kids_friendly    n
-## 1         FALSE  252
-## 2          TRUE 2195</code></pre>
-<pre class="r"><code>parkevent %&gt;% count(senior_friendly)</code></pre>
-<pre><code>##   senior_friendly    n
-## 1           FALSE  718
-## 2            TRUE 1729</code></pre>
-<pre class="r"><code>parkevent %&gt;% count(adults_only)</code></pre>
-<pre><code>##   adults_only    n
-## 1       FALSE 2228
-## 2        TRUE  219</code></pre>
-</div>
 <div id="descriptive-analysis" class="section level2">
 <h2>Descriptive Analysis</h2>
+<div id="table-1-attendance-summary-by-different-variables"
+class="section level3">
+<h3>Table 1: Attendance summary by different variables</h3>
 <pre class="r"><code>parkevent |&gt;
   summarize(
-    mean_attendance = mean(attendance),
-    median_attendance = median(attendance),
-    sd_attendance = sd(attendance),
-    min_attendance = min(attendance),
-    max_attendance = max(attendance)) |&gt;
-  knitr::kable(digits = 2)</code></pre>
+    Mean = mean(attendance),
+    Median = median(attendance),
+    SD = sd(attendance),
+    Min = min(attendance),
+    Max= max(attendance)) |&gt;
+  knitr::kable(caption = &quot;Total Attendance Summary&quot;, digits = 2)</code></pre>
 <table>
-<colgroup>
-<col width="20%" />
-<col width="23%" />
-<col width="17%" />
-<col width="19%" />
-<col width="19%" />
-</colgroup>
+<caption>Total Attendance Summary</caption>
 <thead>
 <tr class="header">
-<th align="right">mean_attendance</th>
-<th align="right">median_attendance</th>
-<th align="right">sd_attendance</th>
-<th align="right">min_attendance</th>
-<th align="right">max_attendance</th>
+<th align="right">Mean</th>
+<th align="right">Median</th>
+<th align="right">SD</th>
+<th align="right">Min</th>
+<th align="right">Max</th>
 </tr>
 </thead>
 <tbody>
@@ -526,12 +407,366 @@ present in the audience description.</p>
 </tr>
 </tbody>
 </table>
-<p>This table summarizes the distribution of attendance across all
+<p>Table 1 summarizes the distribution of attendance across all
 post-COVID events, including the mean, median, variability, and range of
 turnout. These descriptive statistics provide an essential baseline for
 understanding overall engagement levels and for comparing attendance
 across seasons, event types, boroughs, and time-of-day categories in
 subsequent analyses.</p>
+</div>
+<div id="table-2-attendance-summary-by-different-variables"
+class="section level3">
+<h3>Table 2: Attendance summary by different variables</h3>
+<pre class="r"><code>table_vars &lt;- c(&quot;season&quot;, &quot;time_period&quot;, &quot;borough&quot;, &quot;event_type&quot;,&quot;location_type&quot;)
+
+describe_by_group &lt;- function(var) {
+  parkevent |&gt;
+    group_by(across(all_of(var))) |&gt;
+    summarize(
+      Count= n(),
+      Mean= mean(attendance, na.rm = TRUE),
+      Median= median(attendance, na.rm = TRUE),
+      SD= sd(attendance, na.rm = TRUE),
+      Min = min(attendance, na.rm = TRUE),
+      Max = max(attendance, na.rm = TRUE),
+      Sum = sum(attendance, na.rm = TRUE),
+      .groups = &quot;drop&quot;
+    ) |&gt;
+    rename(Level = !!var) |&gt;
+    mutate(Variable = var)
+}
+summary_all &lt;- purrr::map_df(table_vars, describe_by_group)
+summary_all &lt;- summary_all |&gt;
+  group_by(Variable) |&gt;
+  mutate(variable_disp = if_else(row_number() == 1,
+                                 Variable,
+                                 &quot;&quot;)) |&gt;
+  ungroup()
+knitr::kable(
+  summary_all |&gt;
+    select(Variable = variable_disp, Level, Count, Mean, Median, SD, Min, Max,Sum),
+  digits  = 2,
+  caption = &quot;Attendance Summary by Subgroup&quot;
+)</code></pre>
+<table style="width:100%;">
+<caption>Attendance Summary by Subgroup</caption>
+<colgroup>
+<col width="17%" />
+<col width="29%" />
+<col width="7%" />
+<col width="8%" />
+<col width="8%" />
+<col width="8%" />
+<col width="5%" />
+<col width="5%" />
+<col width="8%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Variable</th>
+<th align="left">Level</th>
+<th align="right">Count</th>
+<th align="right">Mean</th>
+<th align="right">Median</th>
+<th align="right">SD</th>
+<th align="right">Min</th>
+<th align="right">Max</th>
+<th align="right">Sum</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">season</td>
+<td align="left">Fall</td>
+<td align="right">621</td>
+<td align="right">84.15</td>
+<td align="right">47.0</td>
+<td align="right">105.48</td>
+<td align="right">0</td>
+<td align="right">861</td>
+<td align="right">52258</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">Spring</td>
+<td align="right">280</td>
+<td align="right">98.29</td>
+<td align="right">60.0</td>
+<td align="right">120.07</td>
+<td align="right">0</td>
+<td align="right">800</td>
+<td align="right">27522</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">Summer</td>
+<td align="right">1466</td>
+<td align="right">66.34</td>
+<td align="right">32.0</td>
+<td align="right">93.40</td>
+<td align="right">0</td>
+<td align="right">800</td>
+<td align="right">97259</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">Winter</td>
+<td align="right">80</td>
+<td align="right">63.99</td>
+<td align="right">16.0</td>
+<td align="right">106.96</td>
+<td align="right">0</td>
+<td align="right">700</td>
+<td align="right">5119</td>
+</tr>
+<tr class="odd">
+<td align="left">time_period</td>
+<td align="left">Afternoon</td>
+<td align="right">1070</td>
+<td align="right">79.83</td>
+<td align="right">35.0</td>
+<td align="right">114.24</td>
+<td align="right">0</td>
+<td align="right">861</td>
+<td align="right">85418</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">Midnight</td>
+<td align="right">411</td>
+<td align="right">80.92</td>
+<td align="right">55.0</td>
+<td align="right">79.83</td>
+<td align="right">0</td>
+<td align="right">500</td>
+<td align="right">33259</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">Morning</td>
+<td align="right">236</td>
+<td align="right">47.80</td>
+<td align="right">22.0</td>
+<td align="right">74.54</td>
+<td align="right">0</td>
+<td align="right">550</td>
+<td align="right">11281</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">Night</td>
+<td align="right">730</td>
+<td align="right">71.51</td>
+<td align="right">40.0</td>
+<td align="right">96.83</td>
+<td align="right">0</td>
+<td align="right">800</td>
+<td align="right">52200</td>
+</tr>
+<tr class="odd">
+<td align="left">borough</td>
+<td align="left">Bronx</td>
+<td align="right">879</td>
+<td align="right">52.32</td>
+<td align="right">24.0</td>
+<td align="right">77.03</td>
+<td align="right">0</td>
+<td align="right">501</td>
+<td align="right">45993</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">Brooklyn</td>
+<td align="right">310</td>
+<td align="right">69.64</td>
+<td align="right">50.0</td>
+<td align="right">76.74</td>
+<td align="right">0</td>
+<td align="right">329</td>
+<td align="right">21588</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">Manhattan</td>
+<td align="right">563</td>
+<td align="right">98.50</td>
+<td align="right">60.0</td>
+<td align="right">111.12</td>
+<td align="right">0</td>
+<td align="right">800</td>
+<td align="right">55457</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">Queens</td>
+<td align="right">415</td>
+<td align="right">84.14</td>
+<td align="right">48.0</td>
+<td align="right">107.52</td>
+<td align="right">0</td>
+<td align="right">861</td>
+<td align="right">34917</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">Staten Island</td>
+<td align="right">280</td>
+<td align="right">86.44</td>
+<td align="right">33.0</td>
+<td align="right">138.22</td>
+<td align="right">0</td>
+<td align="right">800</td>
+<td align="right">24203</td>
+</tr>
+<tr class="even">
+<td align="left">event_type</td>
+<td align="left">Agency Produced Event</td>
+<td align="right">563</td>
+<td align="right">49.39</td>
+<td align="right">16.0</td>
+<td align="right">105.01</td>
+<td align="right">0</td>
+<td align="right">861</td>
+<td align="right">27805</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">Community Based Event</td>
+<td align="right">1564</td>
+<td align="right">83.67</td>
+<td align="right">50.0</td>
+<td align="right">97.20</td>
+<td align="right">0</td>
+<td align="right">800</td>
+<td align="right">130858</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">Local Event</td>
+<td align="right">300</td>
+<td align="right">71.62</td>
+<td align="right">27.5</td>
+<td align="right">104.93</td>
+<td align="right">0</td>
+<td align="right">556</td>
+<td align="right">21485</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">Open House</td>
+<td align="right">9</td>
+<td align="right">104.44</td>
+<td align="right">50.0</td>
+<td align="right">111.17</td>
+<td align="right">5</td>
+<td align="right">345</td>
+<td align="right">940</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">Tournament/Competition</td>
+<td align="right">11</td>
+<td align="right">97.27</td>
+<td align="right">85.0</td>
+<td align="right">84.25</td>
+<td align="right">16</td>
+<td align="right">261</td>
+<td align="right">1070</td>
+</tr>
+<tr class="odd">
+<td align="left">location_type</td>
+<td align="left">Nature Center</td>
+<td align="right">7</td>
+<td align="right">39.29</td>
+<td align="right">25.0</td>
+<td align="right">41.68</td>
+<td align="right">5</td>
+<td align="right">130</td>
+<td align="right">275</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">Other</td>
+<td align="right">134</td>
+<td align="right">96.75</td>
+<td align="right">73.0</td>
+<td align="right">103.14</td>
+<td align="right">0</td>
+<td align="right">800</td>
+<td align="right">12964</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">Park</td>
+<td align="right">1213</td>
+<td align="right">86.95</td>
+<td align="right">45.0</td>
+<td align="right">115.16</td>
+<td align="right">0</td>
+<td align="right">861</td>
+<td align="right">105465</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">Playground</td>
+<td align="right">446</td>
+<td align="right">58.97</td>
+<td align="right">37.5</td>
+<td align="right">67.70</td>
+<td align="right">0</td>
+<td align="right">485</td>
+<td align="right">26300</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">Pool</td>
+<td align="right">249</td>
+<td align="right">20.14</td>
+<td align="right">13.0</td>
+<td align="right">29.38</td>
+<td align="right">0</td>
+<td align="right">300</td>
+<td align="right">5016</td>
+</tr>
+<tr class="even">
+<td align="left"></td>
+<td align="left">Recreation Center</td>
+<td align="right">315</td>
+<td align="right">61.35</td>
+<td align="right">35.0</td>
+<td align="right">78.18</td>
+<td align="right">0</td>
+<td align="right">550</td>
+<td align="right">19326</td>
+</tr>
+<tr class="odd">
+<td align="left"></td>
+<td align="left">School</td>
+<td align="right">83</td>
+<td align="right">154.36</td>
+<td align="right">112.0</td>
+<td align="right">138.28</td>
+<td align="right">5</td>
+<td align="right">715</td>
+<td align="right">12812</td>
+</tr>
+</tbody>
+</table>
+<p>Table 2 shows attendance varied substantially across time, seasons,
+and event characteristics. Monthly patterns showed higher activity in
+late spring and summer, with April, June, and July hosting the largest
+number of events, while winter months had fewer but sometimes
+higher-variance attendance. Seasonal attendance was highest in Spring
+and Summer, reflecting NYC’s outdoor activity trends. Afternoon events
+had the largest counts, followed by Night, whereas Morning and Midnight
+events drew smaller groups. Attendance also differed across boroughs and
+event types, with parks and community events supporting the greatest
+participation. These subgroup summaries provide essential baseline
+context for downstream modeling.</p>
+</div>
+<div id="figure-1-attendance-patterns-across-nyc-parks-events"
+class="section level3">
+<h3>Figure 1: Attendance Patterns Across NYC Parks Events</h3>
 <pre class="r"><code>plot_season =
   ggplot(parkevent, aes(x = season, y = attendance, fill=season)) +
   geom_violin(trim = FALSE, alpha = 0.5) +
@@ -648,16 +883,20 @@ patterns_plot =
     title = &quot;Attendance Patterns Across NYC Parks Events&quot;,
     theme = theme())
 patterns_plot</code></pre>
-<p><img src="Descriptive_Analysis_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
-<p>Figure above displays violin–boxplots of attendance by season, time
-of day, borough, event type, aduience type and location type. These
-plots summarize both the distribution (violin shape) and central
-tendency (box plot) for each category, allowing visual comparison of how
-attendance varies across park events. We restricted the y-axis to 0–250
-attendees because most events fall within this range, while a small
-number of very large events have much higher attendance. Without this
-limit, those extreme values compress the main body of the data and make
-differences between typical events difficult to see.</p>
+<p><img src="Descriptive_Analysis_files/figure-html/unnamed-chunk-4-1.png" width="672" />
+Figure1 displays violin–boxplots of attendance by season, time of day,
+borough, event type, aduience type and location type. These plots
+summarize both the distribution (violin shape) and central tendency (box
+plot) for each category, allowing visual comparison of how attendance
+varies across park events. We restricted the y-axis to 0–250 attendees
+because most events fall within this range, while a small number of very
+large events have much higher attendance. Without this limit, those
+extreme values compress the main body of the data and make differences
+between typical events difficult to see.</p>
+</div>
+<div id="figure-2-audience-composition-by-borough"
+class="section level3">
+<h3>Figure 2: Audience Composition by Borough</h3>
 <pre class="r"><code>ggplot(parkevent_long,
        aes(x = month, fill = audience_type)) +
   geom_bar(position = &quot;fill&quot;) +
@@ -668,18 +907,21 @@ differences between typical events difficult to see.</p>
     fill = &quot;Audience Type&quot;
   ) +
   theme_minimal()</code></pre>
-<p><img src="Descriptive_Analysis_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
-<p>This stacked bar chart shows how audience composition varies across
-months for NYC park events. Kids-friendly events consistently represent
-the largest share throughout the year, especially from April to October,
-indicating strong family engagement during warmer months.
-Senior-friendly events also maintain a substantial and steady presence,
-peaking in early spring and again in late summer. Adults-only events
-fluctuate more noticeably, with higher proportions in winter months such
-as January and December. Overall, the chart highlights seasonal shifts
-in audience needs: family-oriented programming dominates most of the
-year, while adult-focused events become relatively more common during
-colder months.</p>
+<p><img src="Descriptive_Analysis_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p>Figure 2 shows how audience composition varies across months for NYC
+park events. Kids-friendly events consistently represent the largest
+share throughout the year, especially from April to October, indicating
+strong family engagement during warmer months. Senior-friendly events
+also maintain a substantial and steady presence, peaking in early spring
+and again in late summer. Adults-only events fluctuate more noticeably,
+with higher proportions in winter months such as January and December.
+Overall, the chart highlights seasonal shifts in audience needs:
+family-oriented programming dominates most of the year, while
+adult-focused events become relatively more common during colder
+months.</p>
+</div>
+<div id="figure-3-intercation-figures" class="section level3">
+<h3>Figure 3: Intercation Figures</h3>
 <pre class="r"><code>plot_time_season =
   parkevent |&gt;
   group_by(time_period, season) |&gt;
@@ -691,7 +933,7 @@ colder months.</p>
   geom_line() +
   geom_point() +
   labs(
-    title = &quot;Mean Attendance by Time of Day Across Seasons&quot;,
+    title = &quot;3A: Mean Attendance by Time of Day Across Seasons&quot;,
     x = &quot;Time of Day&quot;,
     y = &quot;Mean Attendance&quot;,
     color = &quot;Season&quot;) +
@@ -709,7 +951,7 @@ plot_borough_season =
   geom_point() +
    scale_color_brewer(palette = &quot;Dark2&quot;) +  
   labs(
-    title = &quot;Mean Attendance by Seasons Across Borough&quot;,
+    title = &quot;3B:Mean Attendance by Seasons Across Borough&quot;,
     x = &quot;Season&quot;,
     y = &quot;Mean Attendance&quot;,
     color = &quot;borough&quot;) +
@@ -721,18 +963,22 @@ Seasonal_plot =
     title = &quot;Seasonal Attendance Patterns Across NYC Park Events&quot;)
 
 Seasonal_plot</code></pre>
-<p><img src="Descriptive_Analysis_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
-<p>The first plot shows how mean attendance varies by time of day across
+<p><img src="Descriptive_Analysis_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>Figure 3A shows how mean attendance varies by time of day across
 seasons. Spring consistently has the highest turnout, especially in the
 afternoon, while Winter shows the sharpest decline at midnight. Fall
 attendance remains relatively stable across all times, whereas Summer
-gradually increases into the evening. The second plot compares mean
-attendance by seasons across borough. Staten Island and Queens show the
-highest seasonal peaks, particularly in Spring. Brooklyn and Manhattan
-maintain moderate attendance across seasons, while the Bronx shows the
-lowest and least variable averages. Together, these trends highlight
-clear seasonal and geographic differences in NYC park event
-engagement.</p>
+gradually increases into the evening.<br />
+Figure 3B compares mean attendance by seasons across borough. Staten
+Island and Queens show the highest seasonal peaks, particularly in
+Spring. Brooklyn and Manhattan maintain moderate attendance across
+seasons, while the Bronx shows the lowest and least variable averages.
+Together, these trends highlight clear seasonal and geographic
+differences in NYC park event engagement.</p>
+</div>
+<div id="figure-4-attendance-over-the-calendar-year"
+class="section level3">
+<h3>Figure 4: Attendance Over the Calendar Year</h3>
 <pre class="r"><code>plot_calendar =
   ggplot(parkevent, 
          aes(x = month(date, label = TRUE, abbr = TRUE), 
@@ -749,8 +995,8 @@ engagement.</p>
   coord_cartesian(ylim = c(0, 250)) + 
   theme_minimal()
 plot_calendar</code></pre>
-<p><img src="Descriptive_Analysis_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
-<p>This plot shows how park event attendance varies throughout the
+<p><img src="Descriptive_Analysis_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<p>Figure 4 shows how park event attendance varies throughout the
 calendar year by combining individual event points with a smoothed
 monthly trend line. Grey points display the full distribution of
 attendance for all events, allowing visualization of variability within
@@ -761,6 +1007,7 @@ slight decline in midsummer, and another increase in October and
 December. Using monthly means helps reveal consistent seasonal trends
 while still preserving the underlying data distribution for context and
 interpretation.</p>
+</div>
 </div>
 
 
