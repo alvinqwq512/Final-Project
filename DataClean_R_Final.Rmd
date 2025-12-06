@@ -55,7 +55,7 @@ parkevent = read.csv("Parks_Special_Events_20251204.csv") |>
     
     kids_friendly   = has_children | has_genpub,
     senior_friendly = has_seniors  | has_genpub,
-    adults_only     = !kids_friendly & !senior_friendly)|> 
+    adults_only     = !kids_friendly)|> 
   
   select(
     -datetime,
