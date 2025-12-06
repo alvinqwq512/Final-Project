@@ -527,3 +527,31 @@ Community-based events have higher attendance than Agency Produced events (IRR =
 
 For the audience, adults-only events draw substantially fewer participants than events that are open to children or seniors (IRR = 0.44, 95% CI: 0.27–0.69), while the kids-friendly and senior-friendly indicators are not individually significant after adjustment for other covariates.
 
+A forest plot of IRRs was created to visually summarize the estimated effects and identify predictors with statistically significant associations with attendance.
+```{r}
+
+irr_table2 <- irr_table %>%
+  filter(term != "(Intercept)") %>%
+  mutate(
+    significant = ifelse(conf.low > 1 | conf.high < 1, "Significant", "Not Significant")
+  )
+
+ggplot(irr_table2, aes(x = reorder(term, estimate), y = estimate,
+                       color = significant)) +
+  geom_point(size = 3) +
+   geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = "dashed") +
+  scale_color_manual(values = c("Significant" = "red", 
+                                "Not Significant" = "steelblue")) +
+  coord_flip() +
+  labs(
+    title = "Incidence Rate Ratios (IRRs) with 95% Confidence Intervals",
+    x = "Predictor",
+    y = "IRR",
+    color = ""
+  ) +
+  theme_minimal(base_size = 13)
+
+
+```
+

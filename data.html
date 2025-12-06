@@ -1020,6 +1020,31 @@ participants than events that are open to children or seniors (IRR =
 0.44, 95% CI: 0.27–0.69), while the kids-friendly and senior-friendly
 indicators are not individually significant after adjustment for other
 covariates.</p>
+<p>A forest plot of IRRs was created to visually summarize the estimated
+effects and identify predictors with statistically significant
+associations with attendance.</p>
+<pre class="r"><code>irr_table2 &lt;- irr_table %&gt;%
+  filter(term != &quot;(Intercept)&quot;) %&gt;%
+  mutate(
+    significant = ifelse(conf.low &gt; 1 | conf.high &lt; 1, &quot;Significant&quot;, &quot;Not Significant&quot;)
+  )
+
+ggplot(irr_table2, aes(x = reorder(term, estimate), y = estimate,
+                       color = significant)) +
+  geom_point(size = 3) +
+   geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0.2) +
+  geom_hline(yintercept = 1, linetype = &quot;dashed&quot;) +
+  scale_color_manual(values = c(&quot;Significant&quot; = &quot;red&quot;, 
+                                &quot;Not Significant&quot; = &quot;steelblue&quot;)) +
+  coord_flip() +
+  labs(
+    title = &quot;Incidence Rate Ratios (IRRs) with 95% Confidence Intervals&quot;,
+    x = &quot;Predictor&quot;,
+    y = &quot;IRR&quot;,
+    color = &quot;&quot;
+  ) +
+  theme_minimal(base_size = 13)</code></pre>
+<p><img src="data_files/figure-html/unnamed-chunk-16-1.png" width="672" /></p>
 </div>
 </div>
 
